@@ -1,0 +1,1 @@
+pip install openai-whisper sounddevice soundfile numpy pyttsx3

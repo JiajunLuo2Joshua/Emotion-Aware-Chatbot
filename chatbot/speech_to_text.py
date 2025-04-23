@@ -3,6 +3,11 @@ import sounddevice as sd
 import soundfile as sf
 import numpy as np
 import time
+import os
+
+# 💡 Add local ffmpeg to system PATH for subprocess calls
+ffmpeg_path = os.path.abspath("./ffmpeg/bin")
+os.environ["PATH"] = ffmpeg_path + os.pathsep + os.environ["PATH"]
 
 # Load Whisper base model
 print("📦 Loading local Whisper base model...")

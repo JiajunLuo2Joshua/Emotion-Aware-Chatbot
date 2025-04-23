@@ -1,0 +1,2 @@
+# Ignore specific temporary audio files
+temp_*.wav
