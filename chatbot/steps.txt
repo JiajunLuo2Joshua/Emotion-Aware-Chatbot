@@ -1,0 +1,6 @@
+conda activate cs731
+
+python download_whisper_base.py
+
+python speech_to_text.py
+
