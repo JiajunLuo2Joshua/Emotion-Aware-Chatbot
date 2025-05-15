@@ -12,16 +12,6 @@ __pycache__/
 venv/
 env/
 
-# Ignore the large model files generated during training
-*.pt
-*.pth
-
-# Ignore the data set
-data/emotion_dataset/
-data/original/
-data/raw/
-data/temp/
-
 # Ignore the log file
 *.log
 
