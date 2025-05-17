@@ -3,7 +3,7 @@ torch>=2.0.0
 torchvision>=0.15.0
 timm>=0.9.2
 
-# Face detection
+# Face detection (YOLOv8)
 ultralytics>=8.0.0
 
 # Image and data processing
@@ -12,9 +12,13 @@ numpy>=1.23.0
 scikit-learn>=1.0.2
 Pillow>=9.0.0
 
-# Visualization
+# Visualization and evaluation
 matplotlib>=3.5.1
+seaborn>=0.12.2      # (for confusion matrix heatmap)
 tqdm>=4.62.3
 
-# Optional (if you want TensorBoard for training visualization, not mandatory)
+# Text-to-speech (for speech output)
+pyttsx3>=2.90
+
+# Optional: for training visualization
 tensorboard>=2.11.0
