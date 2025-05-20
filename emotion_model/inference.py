@@ -8,8 +8,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f" Inference device: {device}")
 
 # Ekman theory
-emotion_labels = ['Anger', 'Happy', 'Surprise', 'Sad', 'Contempt', 'Fear', 'Disgust', 'Neutral']
-
+emotion_labels = ['Anger', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
 # loading models
 class EmotionInferencer:
     def __init__(self, model_path):
@@ -28,7 +27,7 @@ class EmotionInferencer:
 
     def predict(self, face_img):
         """
-        face_img: OpenCV format facial image（numpy array）
+        face_img: OpenCV format facial image (numpy array)
         return: (emotion_class, confidence)
         """
         try:

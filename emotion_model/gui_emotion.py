@@ -6,34 +6,22 @@ from ultralytics import YOLO
 import numpy as np
 import os
 
-# absolute path
+# ------------------------ CONFIG ------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# ------------------------ CONFIG ------------------------
 EMOTION_MODEL_PATH = os.path.join(BASE_DIR, 'checkpoints', 'best_model_full.pt')
 FACE_MODEL_PATH = os.path.join(BASE_DIR, '..', 'face_detection', 'yolov8n-face.pt')
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {DEVICE}")
+print(f"[INFO] Using device: {DEVICE}")
 
 LABELS = ['Anger', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
-KEY_LABEL_MAP = {
-    'a': 'Anger',
-    'g': 'Disgust',
-    'f': 'Fear',
-    'h': 'Happy',
-    'n': 'Neutral',
-    'd': 'Sad',
-    's': 'Surprise'
-}
 
 # ------------------------ LOAD MODELS ------------------------
-# Emotion recognition model
 emotion_model = create_model('efficientnet_b0', pretrained=False, num_classes=len(LABELS))
 emotion_model.load_state_dict(torch.load(EMOTION_MODEL_PATH, map_location=DEVICE))
 emotion_model.to(DEVICE)
 emotion_model.eval()
 
-# Face detection model (YOLOv8n-face)
 face_model = YOLO(FACE_MODEL_PATH)
 
 # ------------------------ TRANSFORM ------------------------
@@ -45,22 +33,16 @@ transform = transforms.Compose([
                          [0.229, 0.224, 0.225])
 ])
 
-# ------------------------ METRICS ------------------------
-total = 0
-correct = 0
-
 # ------------------------ CAMERA LOOP ------------------------
 cap = cv2.VideoCapture(0)
-print("Press:")
-for k, v in KEY_LABEL_MAP.items():
-    print(f"'{k}' → {v}")
-print("Press ESC to exit.")
+print("[INFO] Press ESC to exit.")
 
 while True:
     ret, frame = cap.read()
     if not ret:
         break
 
+    # Face detection
     results = face_model(frame, verbose=False)
     boxes = results[0].boxes.xyxy.cpu().numpy()
 
@@ -90,28 +72,13 @@ while True:
             print(f"[Error] Emotion prediction failed: {e}")
             continue
 
-    # Display accuracy
-    if total > 0:
-        acc_text = f"Accuracy: {correct}/{total} = {correct / total * 100:.1f}%"
-        cv2.putText(frame, acc_text, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
-
-    cv2.imshow("Face + Emotion Recognition", frame)
-
+    # Display the frame
+    cv2.imshow("Emotion Recognition", frame)
+    
     # Keyboard input
     key = cv2.waitKey(1)
     if key == 27:  # ESC
         break
-    elif key != -1:
-        try:
-            key_char = chr(key).lower()
-            if key_char in KEY_LABEL_MAP:
-                true_label = KEY_LABEL_MAP[key_char]
-                total += 1
-                if pred_label == true_label:
-                    correct += 1
-                print(f"True: {true_label} | Predicted: {pred_label} | {'✔️' if pred_label == true_label else '❌'}")
-        except:
-            continue
 
 cap.release()
 cv2.destroyAllWindows()
