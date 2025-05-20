@@ -4,6 +4,7 @@ import queue
 import time
 import whisper
 import openai
+import warnings
 
 import soundfile as sf
 import os
@@ -13,6 +14,30 @@ from chat_memory import ChatMemory
 # Optional: list available voices
 # voice_choice.list_voices()
 voice_choice.voice_keyword = "Zira"
+
+from vosk import  KaldiRecognizer
+from vosk import Model as voskModel
+
+import json
+trigger = "hi blueberry"
+
+vosk_model = voskModel("vosk-model-small-en-us-0.15")  
+rec = KaldiRecognizer(vosk_model, 16000)
+
+def listen_and_trigger():
+    with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype='int16', channels=1) as stream:
+        print("🎧 Listening for:  "+ trigger)
+        while True:
+            raw_data = stream.read(4000)[0]
+            data = np.frombuffer(raw_data, dtype=np.int16)
+            audio_bytes = data.tobytes()   
+            if rec.AcceptWaveform(audio_bytes):
+                result = json.loads(rec.Result())
+                text = result.get("text", "").lower()
+                print(f"📝 Heard: {text}")
+                if trigger in text:
+                    print("✅ Wake word detected!")
+                    break
 
 
 # === OpenAI key ===
@@ -26,11 +51,14 @@ client = openai.OpenAI(api_key=openai.api_key)
 # === Whisper ===
 model = whisper.load_model("base")
 
+warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
+
+
 # === Audio Params ===
 fs = 16000
 block_duration = 0.1  # seconds
 block_size = int(fs * block_duration)
-silence_db_threshold = -50
+silence_db_threshold = -50 #scilence is around -80 dB
 max_silence_time = 2.0  # seconds
 silence_blocks_limit = int(max_silence_time / block_duration)
 
@@ -126,6 +154,7 @@ segment = 1
 try:
     while True:
         # ✅ Step 1: Ask for user input
+        listen_and_trigger()
         record_one_utterance()
 
         # ✅ Step 2: Process recorded audio

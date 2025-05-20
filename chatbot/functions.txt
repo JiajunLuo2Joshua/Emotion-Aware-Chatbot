@@ -1,9 +1,0 @@
-pip install openai-whisper
-pip install sounddevice
-pip install soundfile
-pip install numpy
-pip install pyttsx3
-pip install opencv-python==4.7.0.72
-pip install ultralytics
-pip install numpy==1.24.4
-pip install openai

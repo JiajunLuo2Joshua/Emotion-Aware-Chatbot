@@ -1,2 +1,0 @@
-pip install openai-whisper sounddevice soundfile numpy pyttsx3
-pip install python-dotenv

@@ -1,7 +1,7 @@
 import voice_choice
 
 # Change voice BEFORE speaking
-voice_choice.voice_keyword = "David"   # Or "Zira", "Google", etc.
+voice_choice.voice_keyword = "United States"   # Or "Zira", "Google", etc.
 
 # Optional: list available voices
 voice_choice.list_voices()
