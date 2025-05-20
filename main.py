@@ -1,3 +1,5 @@
+import sys
+sys.path.append("./emotion_model")  # Add the parent directory to the system path
 from gui_emotion import run_emotion_capture
 
 if __name__ == "__main__":
