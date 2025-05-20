@@ -10,10 +10,21 @@ from openai import OpenAI
 from PyQt5 import QtWidgets, QtGui, QtCore
 import sys
 from PIL import Image
+import json
 
 os.environ["OPENAI_API_KEY"] = "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"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
+
+# Load config
+default_config = {"font_size": 18, "interval": 10}
+if os.path.exists(CONFIG_PATH):
+    with open(CONFIG_PATH, "r") as f:
+        user_config = json.load(f)
+else:
+    user_config = default_config
+
 EMOTION_MODEL_PATH = os.path.join(BASE_DIR, 'checkpoints', 'best_model_full.pt')
 FACE_MODEL_PATH = os.path.join(BASE_DIR, '..', 'face_detection', 'yolov8n-face.pt')
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,18 +68,29 @@ def send_to_chatgpt(prompt):
         return "(Failed to generate the response)"
 
 class EmotionCompanion(QtWidgets.QWidget):
-    def __init__(self, log_interval=5):
+    def __init__(self, log_interval=10, font_size=18):
         super().__init__()
-        self.setWindowTitle("Emotion Companion")
-        self.setFixedSize(700, 600)
+        self.setWindowTitle("Your Emotion Companion")
+        self.resize(1280, 900)
+
+        self.title = QtWidgets.QLabel("Emotional Companion Chatbot For Elderly", self)
+        self.title.setGeometry(0, 10, 1280, 40)
+        self.title.setAlignment(QtCore.Qt.AlignCenter)
+        self.title.setStyleSheet("font-size: 28px; font-weight: bold; color: white; background-color: #003366;")
+
+        self.exit_button = QtWidgets.QPushButton("Exit", self)
+        self.exit_button.setGeometry(1140, 10, 100, 40)
+        self.exit_button.setStyleSheet("font-size: 18px; padding: 10px 20px;")
+        self.exit_button.clicked.connect(self.confirm_exit)
 
         self.image_label = QtWidgets.QLabel(self)
-        self.image_label.setGeometry(20, 20, 640, 480)
+        self.image_label.setGeometry(160, 60, 960, 720)
 
         self.response_label = QtWidgets.QLabel(self)
-        self.response_label.setGeometry(20, 520, 660, 60)
+        self.response_label.setGeometry(140, 800, 1000, 80)
         self.response_label.setWordWrap(True)
-        self.response_label.setStyleSheet("font-size: 14px;")
+        self.response_label.setAlignment(QtCore.Qt.AlignTop)
+        self.response_label.setStyleSheet(f"font-size: {font_size}px; color: #003366; background-color: #f0f0f0; padding: 20px; border-radius: 10px;")
 
         self.cap = cv2.VideoCapture(0)
         self.timer = QtCore.QTimer()
@@ -78,8 +100,20 @@ class EmotionCompanion(QtWidgets.QWidget):
         self.state = {
             "last_log_time": time.time(),
             "current_emotion": None,
-            "log_interval": log_interval
+            "log_interval": log_interval,
+            "typing_text": "",
+            "char_index": 0,
+            "typing_timer": QtCore.QTimer()
         }
+        self.state["typing_timer"].timeout.connect(self.animate_text)
+
+    def animate_text(self):
+        if self.state["char_index"] < len(self.state["typing_text"]):
+            current = self.response_label.text()
+            self.response_label.setText(current + self.state["typing_text"][self.state["char_index"]])
+            self.state["char_index"] += 1
+        else:
+            self.state["typing_timer"].stop()
 
     def update_frame(self):
         ret, frame = self.cap.read()
@@ -125,7 +159,10 @@ class EmotionCompanion(QtWidgets.QWidget):
             response = send_to_chatgpt(prompt)
             print("[RESPONSE]:", response)
 
-            self.response_label.setText(response)
+            self.state["typing_text"] = response
+            self.response_label.setText("")
+            self.state["char_index"] = 0
+            self.state["typing_timer"].start(50)
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(frame_rgb)
@@ -134,13 +171,21 @@ class EmotionCompanion(QtWidgets.QWidget):
         pixmap = QtGui.QPixmap.fromImage(qt_img)
         self.image_label.setPixmap(pixmap)
 
+    def confirm_exit(self):
+        reply = QtWidgets.QMessageBox.question(self, 'Confirm Exit', 'Are you sure you want to exit?',
+                                               QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
+        if reply == QtWidgets.QMessageBox.Yes:
+            self.close()
+
     def closeEvent(self, event):
         self.cap.release()
         event.accept()
 
 
-def run_emotion_capture_gui(log_interval=5):
+def run_emotion_capture_gui(log_interval=None):
     app = QtWidgets.QApplication(sys.argv)
-    window = EmotionCompanion(log_interval=log_interval)
+    interval = log_interval if log_interval else user_config.get("interval", 5)
+    font_size = user_config.get("font_size", 18)
+    window = EmotionCompanion(log_interval=interval, font_size=font_size)
     window.show()
     sys.exit(app.exec_())
