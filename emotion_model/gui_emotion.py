@@ -5,6 +5,7 @@ from timm import create_model
 from ultralytics import YOLO
 import numpy as np
 import os
+import time
 
 # ------------------------ CONFIG ------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -32,6 +33,12 @@ transform = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406],
                          [0.229, 0.224, 0.225])
 ])
+
+# ------------------------ EMOTION LOG SETUP ------------------------
+emotion_log = []
+last_log_time = time.time()
+log_interval = 5  # Record once every five seconds
+current_emotion = None
 
 # ------------------------ CAMERA LOOP ------------------------
 cap = cv2.VideoCapture(0)
@@ -63,22 +70,40 @@ while True:
                 pred_label = LABELS[pred_idx]
                 confidence = probs[pred_idx].item()
 
-            # Draw face box
+            current_emotion = pred_label
+
+            # Draw face box and emotion label
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
             label = f"{pred_label} ({confidence * 100:.1f}%)"
-            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(frame, label, (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
         except Exception as e:
             print(f"[Error] Emotion prediction failed: {e}")
             continue
 
-    # Display the frame
+    # Record the current emotion every five seconds
+    now = time.time()
+    if current_emotion and now - last_log_time >= log_interval:
+        emotion_log.append(current_emotion)
+        last_log_time = now
+        print(f"[LOG] Emotion recorded: {current_emotion}")
+        print(f"[LOG] Current emotion list: {emotion_log}")
+
+        # Limit the length of the emotion log (the most recent one minute)
+        if len(emotion_log) > 6:
+            emotion_log.pop(0)
+
+    # Display the frame with detected faces and emotions
     cv2.imshow("Emotion Recognition", frame)
-    
-    # Keyboard input
+
     key = cv2.waitKey(1)
     if key == 27:  # ESC
         break
 
 cap.release()
 cv2.destroyAllWindows()
+
+# Output emotional logs, which can be sent to ChatGPT
+print("[INFO] Final emotion list:")
+print(emotion_log)
