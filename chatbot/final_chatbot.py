@@ -24,6 +24,8 @@ trigger = "hi blueberry"
 vosk_model = voskModel("vosk-model-small-en-us-0.15")  
 rec = KaldiRecognizer(vosk_model, 16000)
 
+voice_actived = False
+
 def listen_and_trigger():
     with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype='int16', channels=1) as stream:
         print("🎧 Listening for:  "+ trigger)
@@ -36,6 +38,7 @@ def listen_and_trigger():
                 text = result.get("text", "").lower()
                 print(f"📝 Heard: {text}")
                 if trigger in text:
+                    voice_actived = True
                     print("✅ Wake word detected!")
                     break
 
@@ -107,6 +110,15 @@ def chatgpt_query(prompt):
         print("⚠️ ChatGPT error:", e)
         return None
     
+def text_input():
+    user_input = input("⌨️ Please type your message: ").strip()
+    if user_input:
+        print(f"📝 You typed: {user_input}")
+        reply = chatgpt_query(user_input)
+        if reply:
+            voice_choice.speak(reply)
+    else:
+        print("⚠️ No input detected.")
 
 should_exit = False
 
@@ -154,8 +166,13 @@ segment = 1
 try:
     while True:
         # ✅ Step 1: Ask for user input
+        text_input()
         listen_and_trigger()
-        record_one_utterance()
+        if voice_actived:
+            record_one_utterance()
+        else:
+            text_input()
+            continue
 
         # ✅ Step 2: Process recorded audio
         audio_data = audio_queue.get()

@@ -46,9 +46,10 @@ transform = transforms.Compose([
 
 client = OpenAI()
 
-def build_prompt(emotion):
+def build_prompt(emotion_log):
+    summary = ",".join(emotion_log)
     return (
-        f"The user appears to be experiencing the following emotion: {emotion}.\n"
+        f"The user appears to be experiencing the following emotion: {summary}.\n"
         f"Please generate a concise and gentle sentence based on this emotion, suitable to say to a lonely elderly person."
     )
 
