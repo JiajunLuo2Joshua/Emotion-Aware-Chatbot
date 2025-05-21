@@ -15,7 +15,7 @@ from chat_memory import ChatMemory
 
 # Optional: list available voices
 # voice_choice.list_voices()
-voice_choice.voice_keyword = "Zira"
+voice_choice.voice_keyword = "united states"
 
 from vosk import  KaldiRecognizer
 from vosk import Model as voskModel

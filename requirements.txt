@@ -1,24 +1,38 @@
-# Core deep learning libraries
+# === Core Python Libraries ===
+numpy==1.24.4
+Pillow>=9.0.0
+tqdm>=4.62.3
+
+# === Deep Learning ===
 torch>=2.0.0
 torchvision>=0.15.0
 timm>=0.9.2
 
-# Face detection (YOLOv8)
-ultralytics>=8.0.0
+# === Computer Vision ===
+opencv-python==4.7.0.72
+ultralytics>=8.0.0   # YOLOv8 for face detection
 
-# Image and data processing
-opencv-python>=4.5.5
-numpy>=1.23.0
+# === Data Science & Evaluation ===
 scikit-learn>=1.0.2
-Pillow>=9.0.0
-
-# Visualization and evaluation
 matplotlib>=3.5.1
-seaborn>=0.12.2      # (for confusion matrix heatmap)
-tqdm>=4.62.3
+seaborn>=0.12.2      # for confusion matrix heatmaps
 
-# Text-to-speech (for speech output)
-pyttsx3>=2.90
+# === ChatGPT API ===
+openai
 
-# Optional: for training visualization
+# === Audio I/O and TTS ===
+pyttsx3>=2.90        # Text-to-speech
+pyaudio              # Audio input
+sounddevice
+soundfile
+pvporcupine          # Wake word detection (optional)
+
+# === Whisper Speech-to-Text ===
+openai-whisper       # Speech recognition
+
+# === Optional: Logging & Env Management ===
 tensorboard>=2.11.0
+python-dotenv        # For loading API keys from .env file
+
+# === Optional: Offline STT ===
+vosk                 # Alternative to Whisper for offline STT
