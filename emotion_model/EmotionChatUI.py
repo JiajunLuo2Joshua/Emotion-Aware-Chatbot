@@ -1,0 +1,280 @@
+import sys
+import time
+import os
+import torch
+import cv2
+import numpy as np
+from PIL import Image
+from PyQt5 import QtWidgets, QtGui, QtCore
+from timm import create_model
+from ultralytics import YOLO
+from collections import Counter
+import openai
+from chat_memory import ChatMemory
+import voice_choice
+from voice_input_handler import VoiceInputHandler
+from functools import partial
+
+# Load Models and Constants
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+EMOTION_MODEL_PATH = os.path.join(BASE_DIR, 'checkpoints', 'best_model_full.pt')
+FACE_MODEL_PATH = os.path.join(BASE_DIR, '..', 'face_detection', 'yolov8n-face.pt')
+LABELS = ['Anger', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+emotion_model = create_model('efficientnet_b0', pretrained=False, num_classes=len(LABELS))
+emotion_model.load_state_dict(torch.load(EMOTION_MODEL_PATH, map_location=DEVICE))
+emotion_model.to(DEVICE)
+emotion_model.eval()
+
+face_model = YOLO(FACE_MODEL_PATH)
+
+transform = torch.nn.Sequential(
+    torch.nn.Identity(),  # placeholder for torchvision transforms in a sequential wrapper
+)
+
+api_key_path = os.path.join(BASE_DIR, "openai_key.txt")
+def load_api_key(file_path=api_key_path):
+    with open(file_path, "r") as f:
+        return f.read().strip()
+openai.api_key = load_api_key()
+client = openai.OpenAI(api_key=openai.api_key)
+
+
+system_prompt = (
+    "You are a warm, emotionally supportive, and conversational assistant. "
+    "Your goal is to gently comfort and accompany elderly users who may be feeling anxious, lonely, or upset. "
+    "Speak in a natural, human-like way—avoid listing items or giving advice in numbered or bullet-point format. "
+    "Instead, focus on having a warm, flowing conversation, showing empathy and gentle curiosity. "
+    "Offer encouragement with kind words and emotional presence. "
+    "If the user seems very distressed, gently suggest they talk to someone they trust or a doctor. "
+    "Use clear, simple language, and prioritize emotional connection over structured advice."
+)
+memory = ChatMemory(system_prompt)
+
+
+
+
+
+class EmotionChatApp(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Emotion-Aware Companion Chatbot")
+        self.resize(1280, 900)
+        self.init_ui()
+
+        self.cap = cv2.VideoCapture(0)
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update_frame)
+        self.timer.start(30)
+
+        # Emotion Voting
+        self.vote_buffer = []
+        self.vote_start_time = time.time()
+        self.vote_window_seconds = 5
+        self.vote_sample_target = 100
+        self.vote_threshold = 0.8
+        self.final_emotion = "Unknown"
+        self.voice_handler = VoiceInputHandler()
+
+        self.voice_mode_active = False
+        self.voice_loop_timer = QtCore.QTimer()
+        self.voice_loop_timer.setSingleShot(True)
+        self.voice_loop_timer.timeout.connect(self.voice_loop_step)
+
+    def init_ui(self):        
+        """
+        Initializes the main UI layout of the application.
+
+        This function constructs the visual interface consisting of:
+        - A QLabel for displaying real-time video frames from the webcam.
+        - A QLabel to show the final detected emotion.
+        - A QTextBrowser for displaying the chat history between user and chatbot.
+        - A horizontal layout containing:
+            - QLineEdit for text input from the user.
+            - QPushButton to submit the input and trigger the chatbot response.
+
+        All widgets are arranged using a vertical box layout (QVBoxLayout).
+        """
+        layout = QtWidgets.QVBoxLayout(self)
+        top_layout = QtWidgets.QHBoxLayout()
+        
+        self.video_label = QtWidgets.QLabel()  
+        top_layout.addWidget(self.video_label)
+
+
+        top_right_layout = QtWidgets.QVBoxLayout()
+
+        self.emotion_label = QtWidgets.QLabel("Final Emotion: Unknown")
+        self.emotion_label.setStyleSheet("font-size: 20px; color: green")
+        self.emotion_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.mode = "text"  
+        self.toggle_btn = QtWidgets.QPushButton("🎤 Switch to Voice")
+
+        self.toggle_btn.clicked.connect(self.toggle_input_mode)
+        top_right_layout.addStretch()
+        top_right_layout.addWidget(self.emotion_label)
+        top_right_layout.addStretch()
+        top_right_layout.addWidget(self.toggle_btn)
+        top_right_layout.addStretch()
+
+        
+        top_layout.addLayout(top_right_layout)
+        layout.addLayout(top_layout)
+        
+
+        
+        
+
+        self.chat_history = QtWidgets.QTextBrowser()
+        layout.addWidget(self.chat_history)
+
+        input_layout = QtWidgets.QHBoxLayout()
+        self.input_line = QtWidgets.QLineEdit()
+        self.input_line.setFixedHeight(40)
+        self.send_btn = QtWidgets.QPushButton("Send")
+        self.send_btn.setFixedHeight(40)
+        self.send_btn.clicked.connect(self.handle_text_input)
+        input_layout.addWidget(self.input_line)
+        input_layout.addWidget(self.send_btn)
+
+        
+        #layout.addLayout(input_layout)
+        input_container = QtWidgets.QWidget()
+        input_container.setLayout(input_layout)
+        input_container.setContentsMargins(10, 0, 10, 20)
+        layout.addWidget(input_container)
+
+    def update_frame(self):
+        ret, frame = self.cap.read()
+        if not ret:
+            return
+
+        results = face_model(frame, verbose=False)
+        boxes = results[0].boxes.xyxy.cpu().numpy()
+
+        for box in boxes:
+            x1, y1, x2, y2 = map(int, box[:4])
+            face = frame[y1:y2, x1:x2]
+            if face.size == 0:
+                continue
+            try:
+                face_tensor = transform(torch.tensor(face).permute(2, 0, 1).unsqueeze(0).float() / 255.0).to(DEVICE)
+                with torch.no_grad():
+                    output = emotion_model(face_tensor)
+                    probs = torch.softmax(output, dim=1)[0]
+                    pred_idx = torch.argmax(probs).item()
+                    pred_label = LABELS[pred_idx]
+                self.vote_emotion(pred_label)
+                label = f"{pred_label} ({probs[pred_idx].item()*100:.1f}%)"
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            except Exception as e:
+                print("Emotion error:", e)
+
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(frame_rgb).resize((960, 540))
+        qt_img = QtGui.QImage(img.tobytes(), img.width, img.height, QtGui.QImage.Format_RGB888)
+        self.video_label.setPixmap(QtGui.QPixmap.fromImage(qt_img))
+
+    def chatgpt_query(self, prompt):
+        memory.add_user_input(prompt)
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=memory.get_messages()
+            )
+            reply = response.choices[0].message.content.strip()
+            reply = response.choices[0].message.content.strip()
+            memory.add_assistant_response(reply)
+            return reply
+        except Exception as e:
+            print("⚠️ ChatGPT error:", e)
+            return "(ChatGPT failed to respond.)"
+
+    def vote_emotion(self, emotion):
+        self.vote_buffer.append(emotion)
+        now = time.time()
+        duration = now - self.vote_start_time
+        if duration >= self.vote_window_seconds or len(self.vote_buffer) >= self.vote_sample_target:
+            counter = Counter(self.vote_buffer)
+            most_common, count = counter.most_common(1)[0]
+            ratio = count / len(self.vote_buffer)
+            if ratio >= self.vote_threshold:
+                self.final_emotion = most_common
+                self.emotion_label.setText(f"Final Emotion: {most_common}")
+            self.vote_buffer = []
+            self.vote_start_time = now
+
+    def toggle_input_mode(self):
+        if self.mode == "text":
+            self.mode = "voice"
+            self.toggle_btn.setText("⌨️ Switch to Text")
+            self.voice_mode_active = True
+            self.input_line.setDisabled(True)
+            self.send_btn.setDisabled(True)
+            voice_choice.speak("Switched to voice mode. Please speak.")
+            self.voice_loop_timer.start(200)
+        else:
+            self.mode = "text"
+            self.toggle_btn.setText("🎤 Switch to Voice")
+            self.voice_mode_active = False
+            self.voice_loop_timer.stop()
+            self.input_line.setDisabled(False)
+            self.send_btn.setDisabled(False)
+            voice_choice.speak("Switched to text mode.")
+
+    def voice_loop_step(self):
+        if self.mode != "voice" or not self.voice_mode_active:
+            return
+
+        try:
+            self.voice_handler.transcribe_and_respond(
+                chat_fn=partial(EmotionChatApp.chatgpt_query, self),
+                #chat_fn=self.chatgpt_query,
+                final_emotion=self.final_emotion,
+                chat_history_widget=self.chat_history
+            )
+        except Exception as e:
+            print("Voice input error:", e)
+            voice_choice.speak("Something went wrong during voice input.")
+        
+        if self.voice_mode_active:
+            self.voice_loop_timer.start(300) 
+
+            
+    
+    def handle_text_input(self):
+        user_text = self.input_line.text().strip()
+        if user_text:
+            self.chat_history.append(f"🧑: {user_text}")
+            self.input_line.clear()
+
+            emotion_context = f"(The user seems to be feeling: {self.final_emotion}.)\n"
+            full_prompt = emotion_context + user_text
+            reply = self.chatgpt_query(full_prompt)
+            self.chat_history.append(f"🤖: {reply}")
+            voice_choice.voice_keyword= "United States" 
+            voice_choice.speak(reply)
+
+    def handle_voice_input(self):
+        self.voice_handler.transcribe_and_respond(
+            chat_fn=self.chatgpt_query,
+            final_emotion=self.final_emotion,
+            chat_history_widget=self.chat_history
+        )
+
+    def closeEvent(self, event):
+        self.cap.release()
+        event.accept()
+
+
+def main():
+    app = QtWidgets.QApplication(sys.argv)
+    window = EmotionChatApp()
+    window.show()
+    sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    main()

@@ -1,3 +1,4 @@
+
 import cv2
 import torch
 import torchvision.transforms as transforms
@@ -11,6 +12,9 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 import sys
 from PIL import Image
 import json
+from collections import Counter
+
+
 
 os.environ["OPENAI_API_KEY"] = "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"
 
@@ -46,10 +50,9 @@ transform = transforms.Compose([
 
 client = OpenAI()
 
-def build_prompt(emotion_log):
-    summary = ",".join(emotion_log)
+def build_prompt(emotion):
     return (
-        f"The user appears to be experiencing the following emotion: {summary}.\n"
+        f"The user appears to be experiencing the following emotion: {emotion}.\n"
         f"Please generate a concise and gentle sentence based on this emotion, suitable to say to a lonely elderly person."
     )
 
@@ -108,6 +111,20 @@ class EmotionCompanion(QtWidgets.QWidget):
         }
         self.state["typing_timer"].timeout.connect(self.animate_text)
 
+        # Add another timer for logging emotion periodically
+        self.log_timer = QtCore.QTimer()
+        self.log_timer.timeout.connect(self.print_current_emotion)
+        self.log_timer.start(50)  # every 5000 ms = 5 seconds
+
+        # --- Emotion voting parameters (customizable) ---
+        self.vote_window_seconds = 5
+        self.vote_sample_target = 100
+        self.vote_threshold = 0.8
+
+        # --- Internal state for voting ---
+        self.vote_buffer = []
+        self.vote_start_time = time.time()
+
     def animate_text(self):
         if self.state["char_index"] < len(self.state["typing_text"]):
             current = self.response_label.text()
@@ -115,6 +132,51 @@ class EmotionCompanion(QtWidgets.QWidget):
             self.state["char_index"] += 1
         else:
             self.state["typing_timer"].stop()
+
+    # from collections import Counter
+
+    def update_emotion_vote(self, emotion):
+        now = time.time()
+        self.vote_buffer.append(emotion)
+
+        duration = now - self.vote_start_time
+        if duration >= self.vote_window_seconds or len(self.vote_buffer) >= self.vote_sample_target:
+            # from collections import Counter
+            counter = Counter(self.vote_buffer)
+            most_common_emotion, freq = counter.most_common(1)[0]
+            ratio = freq / len(self.vote_buffer)
+
+            print(f"[VOTE] {most_common_emotion}: {freq}/{len(self.vote_buffer)} = {ratio:.2f}")
+
+            if ratio >= self.vote_threshold:
+                print(f"[FINAL EMOTION]: {most_common_emotion} (ratio {ratio:.2f})")
+                self.vote_buffer = []
+                self.vote_start_time = now
+                return most_common_emotion
+
+            self.vote_buffer = []
+            self.vote_start_time = now
+
+        return None
+
+
+
+    def get_current_emotion(self):
+        return self.state.get("current_emotion")
+
+    def print_current_emotion(self):
+        emotion = self.get_current_emotion()
+        if emotion:
+            # Feed the latest known emotion into the voting algorithm
+            final_emotion = self.update_emotion_vote(emotion)
+            if final_emotion:
+                print(f"[VOTED FINAL EMOTION]: {final_emotion}")
+                # You could add: self.display_response(final_emotion) or self.speak(final_emotion)
+            print(f"[{time.strftime('%H:%M:%S')}] Current Emotion: {emotion}")
+        else:
+            print(f"[{time.strftime('%H:%M:%S')}] No emotion detected yet.")
+
+
 
     def update_frame(self):
         ret, frame = self.cap.read()
@@ -183,10 +245,12 @@ class EmotionCompanion(QtWidgets.QWidget):
         event.accept()
 
 
+
 def run_emotion_capture_gui(log_interval=None):
     app = QtWidgets.QApplication(sys.argv)
     interval = log_interval if log_interval else user_config.get("interval", 5)
     font_size = user_config.get("font_size", 18)
     window = EmotionCompanion(log_interval=interval, font_size=font_size)
+    
     window.show()
     sys.exit(app.exec_())
