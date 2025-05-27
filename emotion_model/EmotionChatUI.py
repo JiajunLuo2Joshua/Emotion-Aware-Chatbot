@@ -14,6 +14,8 @@ from chat_memory import ChatMemory
 import voice_choice
 from voice_input_handler import VoiceInputHandler
 from functools import partial
+from chat_bubble import ChatBubble
+
 
 # Load Models and Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -49,6 +51,7 @@ system_prompt = (
     "Offer encouragement with kind words and emotional presence. "
     "If the user seems very distressed, gently suggest they talk to someone they trust or a doctor. "
     "Use clear, simple language, and prioritize emotional connection over structured advice."
+    "Only provid the main advice, no more than 5 sentences."
 )
 memory = ChatMemory(system_prompt)
 
@@ -60,7 +63,7 @@ class EmotionChatApp(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Emotion-Aware Companion Chatbot")
-        self.resize(1280, 900)
+        self.resize(1280, 960)
         self.init_ui()
 
         self.cap = cv2.VideoCapture(0)
@@ -71,7 +74,7 @@ class EmotionChatApp(QtWidgets.QWidget):
         # Emotion Voting
         self.vote_buffer = []
         self.vote_start_time = time.time()
-        self.vote_window_seconds = 5
+        self.vote_window_seconds = 2
         self.vote_sample_target = 100
         self.vote_threshold = 0.8
         self.final_emotion = "Unknown"
@@ -100,50 +103,85 @@ class EmotionChatApp(QtWidgets.QWidget):
         top_layout = QtWidgets.QHBoxLayout()
         
         self.video_label = QtWidgets.QLabel()  
+        self.video_label.setFixedSize(960, 540)
+        self.video_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed,
+            QtWidgets.QSizePolicy.Fixed
+        )
         top_layout.addWidget(self.video_label)
 
 
         top_right_layout = QtWidgets.QVBoxLayout()
 
         self.emotion_label = QtWidgets.QLabel("Final Emotion: Unknown")
-        self.emotion_label.setStyleSheet("font-size: 20px; color: green")
+        self.emotion_label.setStyleSheet("font-size: 48px; color: green")
         self.emotion_label.setAlignment(QtCore.Qt.AlignCenter)
-        self.mode = "text"  
-        self.toggle_btn = QtWidgets.QPushButton("🎤 Switch to Voice")
-
-        self.toggle_btn.clicked.connect(self.toggle_input_mode)
+        
+        
         top_right_layout.addStretch()
         top_right_layout.addWidget(self.emotion_label)
         top_right_layout.addStretch()
-        top_right_layout.addWidget(self.toggle_btn)
+        
         top_right_layout.addStretch()
 
         
         top_layout.addLayout(top_right_layout)
-        layout.addLayout(top_layout)
+        layout.addLayout(top_layout, stretch=1)
         
 
-        
-        
+        self.scroll_area = QtWidgets.QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.chat_container = QtWidgets.QWidget()
+        self.chat_layout = QtWidgets.QVBoxLayout(self.chat_container)
+        self.chat_layout.setAlignment(QtCore.Qt.AlignTop)
+        #self.chat_container.setMinimumHeight(1000) 
+        self.chat_container.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred,
+            QtWidgets.QSizePolicy.Expanding
+        )
+        self.scroll_area.setWidget(self.chat_container)
+        layout.addWidget(self.scroll_area, stretch=1)
 
-        self.chat_history = QtWidgets.QTextBrowser()
-        layout.addWidget(self.chat_history)
 
         input_layout = QtWidgets.QHBoxLayout()
-        self.input_line = QtWidgets.QLineEdit()
-        self.input_line.setFixedHeight(40)
-        self.send_btn = QtWidgets.QPushButton("Send")
-        self.send_btn.setFixedHeight(40)
-        self.send_btn.clicked.connect(self.handle_text_input)
-        input_layout.addWidget(self.input_line)
-        input_layout.addWidget(self.send_btn)
+        self.input_line = QtWidgets.QTextEdit()
+        #self.input_line.setFixedHeight(100)  # Can be adjusted or made resizable later
+        self.input_line.setStyleSheet("font-size: 24px; padding: 8px;")
+        self.input_line.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Expanding  # 🔥 Allow vertical growth
+        )
 
-        
-        #layout.addLayout(input_layout)
+        # Create the "Send" button
+        self.send_btn = QtWidgets.QPushButton("SEND")
+        self.send_btn.setStyleSheet("font-size: 24px;")
+        self.send_btn.setFixedSize(240,48)
+        self.send_btn.clicked.connect(self.handle_text_input)
+
+        # Create the "Switch to Voice" button
+        self.mode = "text"
+        self.toggle_btn = QtWidgets.QPushButton("🎤 Switch to Voice")
+        self.toggle_btn.setStyleSheet("font-size: 24px;")
+        self.toggle_btn.setFixedSize(240,48)
+        self.toggle_btn.clicked.connect(self.toggle_input_mode)
+
+        # Layout for buttons (Send above, Voice below, evenly spaced vertically)
+        button_layout = QtWidgets.QVBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(self.send_btn, alignment=QtCore.Qt.AlignCenter)
+        button_layout.addStretch()
+        button_layout.addWidget(self.toggle_btn, alignment=QtCore.Qt.AlignCenter)
+        button_layout.addStretch()
+
+        # Add text input and button stack to main horizontal layout
+        input_layout.addWidget(self.input_line, stretch=1)
+        input_layout.addLayout(button_layout)
+
+        # Wrap input layout in a QWidget and set padding/margin
         input_container = QtWidgets.QWidget()
         input_container.setLayout(input_layout)
-        input_container.setContentsMargins(10, 0, 10, 20)
-        layout.addWidget(input_container)
+        input_container.setContentsMargins(10, 10, 10, 20)
+        layout.addWidget(input_container,stretch=1)
 
     def update_frame(self):
         ret, frame = self.cap.read()
@@ -174,8 +212,17 @@ class EmotionChatApp(QtWidgets.QWidget):
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(frame_rgb).resize((960, 540))
+        
         qt_img = QtGui.QImage(img.tobytes(), img.width, img.height, QtGui.QImage.Format_RGB888)
         self.video_label.setPixmap(QtGui.QPixmap.fromImage(qt_img))
+    
+    def add_chat_bubble(self, role, message):
+        bubble = ChatBubble(role, message)
+        self.chat_layout.addWidget(bubble)
+        QtCore.QTimer.singleShot(100, lambda:
+            self.scroll_area.verticalScrollBar().setValue(self.scroll_area.verticalScrollBar().maximum())
+        )
+
 
     def chatgpt_query(self, prompt):
         memory.add_user_input(prompt)
@@ -202,7 +249,7 @@ class EmotionChatApp(QtWidgets.QWidget):
             ratio = count / len(self.vote_buffer)
             if ratio >= self.vote_threshold:
                 self.final_emotion = most_common
-                self.emotion_label.setText(f"Final Emotion: {most_common}")
+                self.emotion_label.setText(f"Emotion: {most_common}")
             self.vote_buffer = []
             self.vote_start_time = now
 
@@ -214,7 +261,7 @@ class EmotionChatApp(QtWidgets.QWidget):
             self.input_line.setDisabled(True)
             self.send_btn.setDisabled(True)
             voice_choice.speak("Switched to voice mode. Please speak.")
-            self.voice_loop_timer.start(200)
+            self.voice_loop_timer.start(300)
         else:
             self.mode = "text"
             self.toggle_btn.setText("🎤 Switch to Voice")
@@ -229,33 +276,53 @@ class EmotionChatApp(QtWidgets.QWidget):
             return
 
         try:
-            self.voice_handler.transcribe_and_respond(
+            voice_reply = self.voice_handler.transcribe_and_respond(
                 chat_fn=partial(EmotionChatApp.chatgpt_query, self),
                 #chat_fn=self.chatgpt_query,
                 final_emotion=self.final_emotion,
-                chat_history_widget=self.chat_history
+                add_bubble_fn=self.add_chat_bubble
             )
+            #Stop the user's any possible change
+            self.send_btn.setDisabled(True)
+            self.input_line.setDisabled(True)
+            self.toggle_btn.setDisabled(True)
+            QtCore.QTimer.singleShot(100, lambda: self.speak_and_resume(voice_reply))
+
         except Exception as e:
             print("Voice input error:", e)
             voice_choice.speak("Something went wrong during voice input.")
         
+        #if self.voice_mode_active:
+            #self.voice_loop_timer.start(300) 
+    
+    def speak_and_resume(self, reply):
+        try:
+            self.speak_and_reenable(reply) 
+        except Exception as e:
+            print("Voice speak error:", e)
+
         if self.voice_mode_active:
-            self.voice_loop_timer.start(300) 
+            self.voice_loop_timer.start(300)
 
             
     
     def handle_text_input(self):
-        user_text = self.input_line.text().strip()
+        user_text = self.input_line.toPlainText().strip()
         if user_text:
-            self.chat_history.append(f"🧑: {user_text}")
+            self.add_chat_bubble("user", user_text)
             self.input_line.clear()
+
+            #Stop the user's any possible change
+            self.send_btn.setDisabled(True)
+            self.input_line.setDisabled(True)
+            self.toggle_btn.setDisabled(True)
 
             emotion_context = f"(The user seems to be feeling: {self.final_emotion}.)\n"
             full_prompt = emotion_context + user_text
             reply = self.chatgpt_query(full_prompt)
-            self.chat_history.append(f"🤖: {reply}")
+            self.add_chat_bubble("bot", reply)
             voice_choice.voice_keyword= "United States" 
-            voice_choice.speak(reply)
+            QtCore.QTimer.singleShot(50, lambda: self.speak_and_reenable(reply))
 
     def handle_voice_input(self):
         self.voice_handler.transcribe_and_respond(
@@ -263,6 +330,17 @@ class EmotionChatApp(QtWidgets.QWidget):
             final_emotion=self.final_emotion,
             chat_history_widget=self.chat_history
         )
+    
+    def speak_and_reenable(self, reply):
+        try:
+            voice_choice.speak(reply)  # blocking the speaking
+        except Exception as e:
+            print("Voice speak error:", e)
+
+        
+        self.send_btn.setDisabled(False)
+        self.input_line.setDisabled(False)
+        self.toggle_btn.setDisabled(False)
 
     def closeEvent(self, event):
         self.cap.release()

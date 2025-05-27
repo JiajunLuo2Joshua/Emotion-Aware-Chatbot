@@ -55,7 +55,7 @@ class VoiceInputHandler:
                 sd.sleep(100)
         return q.get()
 
-    def transcribe_and_respond(self, chat_fn, final_emotion, chat_history_widget):
+    def transcribe_and_respond222(self, chat_fn, final_emotion, chat_history_widget):
         try:
             audio = self.record_utterance()
             temp_path = os.path.join(BASE_DIR, "temp_voice.wav")
@@ -76,6 +76,29 @@ class VoiceInputHandler:
         except Exception as e:
             print("Voice input failed:", e)
             voice_choice.speak("There was a problem with voice input.")
+
+    def transcribe_and_respond(self, chat_fn, final_emotion, add_bubble_fn):
+        try:
+            audio = self.record_utterance()
+            temp_path = os.path.join(BASE_DIR, "temp_voice.wav")
+            sf.write(temp_path, audio, self.fs)
+
+            result = self.model.transcribe(temp_path)
+            transcript = result["text"].strip()
+
+            if transcript:
+                add_bubble_fn("user", transcript)
+                emotion_prompt = f"(The user seems to be feeling: {final_emotion}.)\n"
+                reply = chat_fn(emotion_prompt + transcript)
+                add_bubble_fn("bot", reply)
+                return reply 
+            else:
+                add_bubble_fn("bot", "⚠️ No speech detected.")
+                return "Sorry, I didn't catch that."
+        except Exception as e:
+            print("Voice input failed:", e)
+            return "There was a problem with voice input."
+
     def start_conversation_loop(self, chat_fn, final_emotion_fn, chat_history_widget):
         self.active = True
         voice_choice.speak("Voice mode started. You may speak anytime.")
