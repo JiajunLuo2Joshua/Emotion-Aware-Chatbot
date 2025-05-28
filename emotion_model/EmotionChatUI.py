@@ -90,19 +90,7 @@ class EmotionChatApp(QtWidgets.QWidget):
         self.recent_emotions = []
 
     def init_ui(self):        
-        """
-        Initializes the main UI layout of the application.
-
-        This function constructs the visual interface consisting of:
-        - A QLabel for displaying real-time video frames from the webcam.
-        - A QLabel to show the final detected emotion.
-        - A QTextBrowser for displaying the chat history between user and chatbot.
-        - A horizontal layout containing:
-            - QLineEdit for text input from the user.
-            - QPushButton to submit the input and trigger the chatbot response.
-
-        All widgets are arranged using a vertical box layout (QVBoxLayout).
-        """
+        
         layout = QtWidgets.QVBoxLayout(self)
         top_layout = QtWidgets.QHBoxLayout()
         
@@ -284,11 +272,12 @@ class EmotionChatApp(QtWidgets.QWidget):
             
             if self.final_emotion != self.pre_emotion:
                 self.update_suggestion(most_common)
+                self.update_emotion_history(most_common)
                 self.pre_emotion = self.final_emotion
             if ratio >= self.vote_threshold:
                 self.final_emotion = most_common
                 self.emotion_label.setText(f"Emotion: {most_common}")
-                self.update_emotion_history(most_common)
+                
             
             self.vote_buffer = []
             self.vote_start_time = now
