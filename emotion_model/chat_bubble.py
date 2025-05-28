@@ -28,7 +28,7 @@ class ChatBubble(QtWidgets.QWidget):
                     background-color: #e1ffc7;
                     border-radius: 14px;
                     padding: 12px;
-                    font-size: 24px;
+                    font-size: 28px;
                 }
             """)
             layout.addStretch()
@@ -42,7 +42,7 @@ class ChatBubble(QtWidgets.QWidget):
                     background-color: #ffffff;
                     border-radius: 14px;
                     padding: 12px;
-                    font-size: 24px;
+                    font-size: 28px;
                 }
             """)
             layout.addWidget(avatar)  

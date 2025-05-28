@@ -168,7 +168,7 @@ class EmotionChatApp(QtWidgets.QWidget):
         input_layout = QtWidgets.QHBoxLayout()
         self.input_line = QtWidgets.QTextEdit()
         #self.input_line.setFixedHeight(100)  # Can be adjusted or made resizable later
-        self.input_line.setStyleSheet("font-size: 24px; padding: 8px;")
+        self.input_line.setStyleSheet("font-size: 32px; padding: 8px;")
         self.input_line.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Expanding  # 🔥 Allow vertical growth
@@ -271,8 +271,8 @@ class EmotionChatApp(QtWidgets.QWidget):
             ratio = count / len(self.vote_buffer)
             
             if self.final_emotion != self.pre_emotion:
-                self.update_suggestion(most_common)
-                self.update_emotion_history(most_common)
+                self.update_suggestion(self.final_emotion)
+                self.update_emotion_history(self.final_emotion)
                 self.pre_emotion = self.final_emotion
             if ratio >= self.vote_threshold:
                 self.final_emotion = most_common
