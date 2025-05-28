@@ -15,6 +15,7 @@ import voice_choice
 from voice_input_handler import VoiceInputHandler
 from functools import partial
 from chat_bubble import ChatBubble
+import threading
 
 
 # Load Models and Constants
@@ -78,12 +79,15 @@ class EmotionChatApp(QtWidgets.QWidget):
         self.vote_sample_target = 100
         self.vote_threshold = 0.8
         self.final_emotion = "Unknown"
+        self.pre_emotion = None
         self.voice_handler = VoiceInputHandler()
 
         self.voice_mode_active = False
         self.voice_loop_timer = QtCore.QTimer()
         self.voice_loop_timer.setSingleShot(True)
         self.voice_loop_timer.timeout.connect(self.voice_loop_step)
+
+        self.recent_emotions = []
 
     def init_ui(self):        
         """
@@ -110,31 +114,61 @@ class EmotionChatApp(QtWidgets.QWidget):
         )
         top_layout.addWidget(self.video_label)
 
-
+        ## top right
         top_right_layout = QtWidgets.QVBoxLayout()
 
-        self.emotion_label = QtWidgets.QLabel("Final Emotion: Unknown")
-        self.emotion_label.setStyleSheet("font-size: 48px; color: green")
+        # 1. Emotion Label
+        self.emotion_label = QtWidgets.QLabel("Emotion: Unknown")
+        self.emotion_label.setStyleSheet("""
+            background-color: #e6ffe6;
+            font-size: 36px;
+            font-weight: bold;
+            border: 2px solid #b2fab4;
+            border-radius: 12px;
+            padding: 12px;
+        """)
         self.emotion_label.setAlignment(QtCore.Qt.AlignCenter)
-        
-        
-        top_right_layout.addStretch()
-        top_right_layout.addWidget(self.emotion_label)
-        top_right_layout.addStretch()
-        
-        top_right_layout.addStretch()
+        top_right_layout.addWidget(self.emotion_label, stretch=1)
 
-        
+        # 2. Emotion History Panel
+        self.emotion_history_label = QtWidgets.QLabel("Recent Emotions:\n(none yet)")
+        self.emotion_history_label.setStyleSheet("""
+            background-color: #f0f8ff;
+            border: 2px solid #a0c4ff;
+            border-radius: 12px;
+            padding: 10px;
+            font-size: 32px;
+            font-weight: bold;                                     
+                                                 
+        """)
+        self.emotion_history_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        top_right_layout.addWidget(self.emotion_history_label, stretch=1)
+
+        # 3. Suggestion Box
+        self.suggestion_box = QtWidgets.QLabel("💡 Tip: Try talking about a happy memory!")
+        self.suggestion_box.setStyleSheet("""
+            background-color: #fff8dc;
+            border: 1px solid #ffe4b5;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 32px;
+            font-weight: bold;
+        """)
+        self.suggestion_box.setWordWrap(True)
+        top_right_layout.addWidget(self.suggestion_box, stretch=1)
+
+        layout.addStretch()
+
         top_layout.addLayout(top_right_layout)
         layout.addLayout(top_layout, stretch=1)
         
-
+        ## Middle
         self.scroll_area = QtWidgets.QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.chat_container = QtWidgets.QWidget()
         self.chat_layout = QtWidgets.QVBoxLayout(self.chat_container)
         self.chat_layout.setAlignment(QtCore.Qt.AlignTop)
-        #self.chat_container.setMinimumHeight(1000) 
+        
         self.chat_container.setSizePolicy(
             QtWidgets.QSizePolicy.Preferred,
             QtWidgets.QSizePolicy.Expanding
@@ -232,7 +266,7 @@ class EmotionChatApp(QtWidgets.QWidget):
                 messages=memory.get_messages()
             )
             reply = response.choices[0].message.content.strip()
-            reply = response.choices[0].message.content.strip()
+            #reply = response.choices[0].message.content.strip()
             memory.add_assistant_response(reply)
             return reply
         except Exception as e:
@@ -247,11 +281,44 @@ class EmotionChatApp(QtWidgets.QWidget):
             counter = Counter(self.vote_buffer)
             most_common, count = counter.most_common(1)[0]
             ratio = count / len(self.vote_buffer)
+            
+            if self.final_emotion != self.pre_emotion:
+                self.update_suggestion(most_common)
+                self.pre_emotion = self.final_emotion
             if ratio >= self.vote_threshold:
                 self.final_emotion = most_common
                 self.emotion_label.setText(f"Emotion: {most_common}")
+                self.update_emotion_history(most_common)
+            
             self.vote_buffer = []
             self.vote_start_time = now
+
+    def update_emotion_history(self, new_emotion):
+        self.recent_emotions.append(new_emotion)
+        if len(self.recent_emotions) > 6:
+            self.recent_emotions.pop(0)
+
+        emoji_map = {
+            "Happy": "😊", "Sad": "😢", "Neutral": "😐",
+            "Anger": "😠", "Disgust": "🤢", "Fear": "😨", "Surprise": "😲"
+        }
+        emoji_sequence = " → ".join(emoji_map.get(e, '') for e in self.recent_emotions)
+        history_text = f"Recent Emotions:\n {emoji_sequence}"
+        
+        self.emotion_history_label.setText(history_text)
+
+    def update_suggestion(self, emotion):
+        suggestions = {
+            "Happy": "💡 You seem joyful! What’s something fun or exciting that happened today?",
+            "Sad": "💡 I’m here for you. Would you like to talk about something or someone that brings you comfort?",
+            "Anger": "💡 It’s okay to feel frustrated. Want to tell me what happened or what’s been bothering you?",
+            "Neutral": "💡 Just checking in — is there anything on your mind you'd like to share today?",
+            "Surprise": "💡 That caught you off guard! Want to tell me what just happened?",
+            "Fear": "💡 You’re not alone. Would it help to talk about what’s making you uneasy right now?",
+            "Disgust": "💡 That didn’t sit right with you, huh? Want to switch topics or tell me what happened?"
+        }
+        tip = suggestions.get(emotion, "💡 I'm here for you. Feel free to share anything on your mind.")
+        self.suggestion_box.setText(tip)
 
     def toggle_input_mode(self):
         if self.mode == "text":
@@ -316,35 +383,40 @@ class EmotionChatApp(QtWidgets.QWidget):
             self.send_btn.setDisabled(True)
             self.input_line.setDisabled(True)
             self.toggle_btn.setDisabled(True)
+            
 
             emotion_context = f"(The user seems to be feeling: {self.final_emotion}.)\n"
             full_prompt = emotion_context + user_text
             reply = self.chatgpt_query(full_prompt)
             self.add_chat_bubble("bot", reply)
             voice_choice.voice_keyword= "United States" 
-            QtCore.QTimer.singleShot(50, lambda: self.speak_and_reenable(reply))
+            QtCore.QTimer.singleShot(100, lambda: self.speak_and_reenable(reply))
+            
 
-    def handle_voice_input(self):
-        self.voice_handler.transcribe_and_respond(
-            chat_fn=self.chatgpt_query,
-            final_emotion=self.final_emotion,
-            chat_history_widget=self.chat_history
-        )
-    
+
     def speak_and_reenable(self, reply):
-        try:
-            voice_choice.speak(reply)  # blocking the speaking
-        except Exception as e:
-            print("Voice speak error:", e)
-
         
-        self.send_btn.setDisabled(False)
-        self.input_line.setDisabled(False)
-        self.toggle_btn.setDisabled(False)
+
+        def speak_and_restore():
+            try:
+                voice_choice.speak(reply)
+            except Exception as e:
+                print("Voice speak error:", e)
+            finally:
+                # Re-enable buttons on the main thread
+                QtCore.QTimer.singleShot(0, self.enable_input_buttons)
+
+        threading.Thread(target=speak_and_restore).start()
 
     def closeEvent(self, event):
         self.cap.release()
         event.accept()
+
+    def enable_input_buttons(self):
+        self.send_btn.setDisabled(False)
+        self.input_line.setDisabled(False)
+        self.toggle_btn.setDisabled(False)
+        
 
 
 def main():
