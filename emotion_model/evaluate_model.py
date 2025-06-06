@@ -9,15 +9,14 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 
 import numpy as np
 
-# configure
-DATA_DIR = "/Users/owenshi/github warehouse/cs731-2025-project-group-8/data/emotion_dataset/val"
+# Configuration
+DATA_DIR = os.path.join("..", "data", "emotion_dataset", "val")
+CHECKPOINT_DIR = os.path.join("..", "emotion_model", "checkpoints")
 NUM_CLASSES = 7  # Ekman theory 
 BATCH_SIZE = 32
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Evaluating on device: {DEVICE}")
-total_time = 0
-total_images = 0
-# labels name
+
 emotion_labels = ['Anger', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
 
 # image preprocessing
@@ -31,36 +30,35 @@ transform = transforms.Compose([
 # load the validation dataset
 val_dataset = datasets.ImageFolder(DATA_DIR, transform=transform)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
-
-# load the model
+# Ensure the checkpoint directory exists
 models_to_test = [
-    ("EfficientNet", 'efficientnet_b0', '/Users/owenshi/github warehouse/cs731-2025-project-group-8/emotion_model/checkpoints/best_model_full.pt'),
-    ("MobileNetV2", 'mobilenetv2_100', '/Users/owenshi/github warehouse/cs731-2025-project-group-8/emotion_model/checkpoints/mobilenetv2_100.pt'),
-    ("FERNet", 'fernet', '/Users/owenshi/github warehouse/cs731-2025-project-group-8/emotion_model/checkpoints/fernet.pt'), 
+    ("EfficientNet", 'efficientnet_b0', os.path.join(CHECKPOINT_DIR, 'best_model_efficientnet_b0.pt')),
+    ("MobileNetV2", 'mobilenetv2_100', os.path.join(CHECKPOINT_DIR, 'best_model_mobilenetv2_100.pt')),
+    ("ResNet50", 'resnet50', os.path.join(CHECKPOINT_DIR, 'best_model_resnet50.pt')),
 ]
 
 for model_name, timm_name, weight_path in models_to_test:
     print(f"\n--- Evaluating {model_name} ---")
     # Load the model structure
     model = create_model(timm_name, pretrained=False, num_classes=NUM_CLASSES)
-    # Load the training weights
     model.load_state_dict(torch.load(weight_path, map_location=DEVICE))
     model.to(DEVICE)
     model.eval()
 
     all_preds = []
     all_labels = []
+    total_time = 0
+    total_images = 0
 
     with torch.no_grad():
         for inputs, labels in val_loader:
             inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
-            outputs = model(inputs)
-            preds = torch.argmax(outputs, dim=1)
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
             start = time.time()
             outputs = model(inputs)
             end = time.time()
+            preds = torch.argmax(outputs, dim=1)
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
             total_time += (end - start)
             total_images += inputs.size(0)
 
@@ -77,8 +75,8 @@ for model_name, timm_name, weight_path in models_to_test:
     print(f"Model size: {size_mb:.2f} MB")
 
     # Average inference time and FPS
-    avg_time_per_image = (total_time / total_images) * 1000  # Milliseconds per sheet
-    fps = total_images / total_time
+    avg_time_per_image = (total_time / total_images) * 1000 if total_images > 0 else 0  # ms/张
+    fps = total_images / total_time if total_time > 0 else 0
     print(f"Average inference time: {avg_time_per_image:.2f} ms/image")
     print(f"FPS: {fps:.2f} images/second")
 

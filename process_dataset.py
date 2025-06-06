@@ -4,9 +4,9 @@ import random
 from tqdm import tqdm
 
 # configuration
-SOURCE_AFFECTNET = "/Users/owenshi/csys731/data/original/AffectNet-HQ"
-SOURCE_RAFDB = "/Users/owenshi/csys731/data/original/RAF-DB/"
-TARGET_DIR = "data/emotion_dataset/"
+SOURCE_AFFECTNET = os.path.join("..", "data", "original", "AffectNet-HQ")
+SOURCE_RAFDB = os.path.join("..", "data", "original", "RAF-DB")
+TARGET_DIR = os.path.join("..", "data", "emotion_dataset")
 
 SPLIT_RATIO = 0.8  # 80% for training, 20% for validation
 CATEGORIES = ['happy', 'sad', 'fear', 'anger', 'surprise', 'disgust', 'neutral']
