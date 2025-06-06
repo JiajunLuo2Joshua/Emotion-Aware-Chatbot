@@ -15,10 +15,6 @@ env/
 # Ignore the log file
 *.log
 
-# Ignore the automatically generated pictures/charts
-*.png
-*.jpg
-
 # Ignore other temporary files
 .DS_Store
 Thumbs.db
