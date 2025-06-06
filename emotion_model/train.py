@@ -38,15 +38,14 @@ class EarlyStopping:
         if self.verbose:
             print(f" Validation acc improved, model saved to {path}")
 
-# training function
-def train_one_epoch(model, loader, optimizer, criterion):
+def train_one_epoch(model, loader, optimizer, criterion, device):
     model.train()
     running_loss = 0.0
     preds = []
     targets = []
 
     for inputs, labels in loader:
-        inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
+        inputs, labels = inputs.to(device), labels.to(device)
 
         optimizer.zero_grad()
         outputs = model(inputs)
@@ -55,15 +54,13 @@ def train_one_epoch(model, loader, optimizer, criterion):
         optimizer.step()
 
         running_loss += loss.item()
-
         preds.extend(outputs.argmax(dim=1).cpu().numpy())
         targets.extend(labels.cpu().numpy())
 
     acc = accuracy_score(targets, preds)
     return running_loss / len(loader), acc
 
-# verification function
-def validate(model, loader, criterion):
+def validate(model, loader, criterion, device):
     model.eval()
     running_loss = 0.0
     preds = []
@@ -71,7 +68,7 @@ def validate(model, loader, criterion):
 
     with torch.no_grad():
         for inputs, labels in loader:
-            inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
+            inputs, labels = inputs.to(device), labels.to(device)
 
             outputs = model(inputs)
             loss = criterion(outputs, labels)
@@ -83,22 +80,23 @@ def validate(model, loader, criterion):
     acc = accuracy_score(targets, preds)
     return running_loss / len(loader), acc
 
+def create_emotion_model(model_name, num_classes):
+    model = create_model(model_name, pretrained=True, num_classes=num_classes)
+    return model
+
 if __name__ == '__main__':
     # configuration parameter
-    DATA_DIR = "data/emotion_dataset"
+    DATA_DIR = "../data/emotion_dataset"
     SAVE_DIR = "emotion_model/checkpoints"
-    MODEL_NAME = "efficientnet_b0"
     NUM_CLASSES = 7
     BATCH_SIZE = 16
     EPOCHS = 20
     LEARNING_RATE = 1e-4
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     os.makedirs(SAVE_DIR, exist_ok=True)
 
     print(f" Training on device: {DEVICE}")
 
-    # image preprocessing
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
@@ -106,75 +104,60 @@ if __name__ == '__main__':
                              [0.229, 0.224, 0.225])
     ])
 
-    # Load the full dataset
+    # Lodaing the full dataset
     full_train_dataset = datasets.ImageFolder(os.path.join(DATA_DIR, "train"), transform=transform)
     full_val_dataset = datasets.ImageFolder(os.path.join(DATA_DIR, "val"), transform=transform)
-
-    # Subset: Only 10% of the data is used for training and testing
-    # train_subset_size = int(0.1 * len(full_train_dataset))
-    # val_subset_size = int(0.1 * len(full_val_dataset))
-
-    # train_dataset, _ = torch.utils.data.random_split(full_train_dataset,
-    #                                                  [train_subset_size, len(full_train_dataset) - train_subset_size])
-    # val_dataset, _ = torch.utils.data.random_split(full_val_dataset,
-    #                                                [val_subset_size, len(full_val_dataset) - val_subset_size])
-    #
-    # print(f" Using Subset: Train samples {len(train_dataset)}, Val samples {len(val_dataset)}")
-
-    # full dataset:
     train_dataset = full_train_dataset
     val_dataset = full_val_dataset
 
     print(f" Using Full Dataset: Train samples {len(train_dataset)}, Val samples {len(val_dataset)}")
 
-    # DataLoader
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
-    # create models
-    model = create_model(MODEL_NAME, pretrained=True, num_classes=NUM_CLASSES)
-    model = model.to(DEVICE)
+    # train the 3 models
+    model_list = ["efficientnet_b0", "mobilenetv2_100", "resnet50"]
 
-    # Loss function, optimizer, learning rate scheduler
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3, factor=0.1)
-    early_stopping = EarlyStopping(patience=7, verbose=True)
+    for model_name in model_list:
+        print(f"\n=== Training model: {model_name} ===")
+        model = create_emotion_model(model_name, NUM_CLASSES)
+        model = model.to(DEVICE)
 
-    # save the training records
-    history = {
-        "train_loss": [],
-        "val_loss": [],
-        "train_acc": [],
-        "val_acc": []
-    }
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3, factor=0.1)
+        early_stopping = EarlyStopping(patience=7, verbose=True)
 
-    # --- training cycle begins ---
-    best_model_path = os.path.join(SAVE_DIR, "best_model_full.pt")
+        history = {
+            "train_loss": [],
+            "val_loss": [],
+            "train_acc": [],
+            "val_acc": []
+        }
 
-    for epoch in range(EPOCHS):
-        train_loss, train_acc = train_one_epoch(model, train_loader, optimizer, criterion)
-        val_loss, val_acc = validate(model, val_loader, criterion)
+        best_model_path = os.path.join(SAVE_DIR, f"best_model_{model_name}.pt")
 
-        print(f"Epoch [{epoch+1}/{EPOCHS}] "
-              f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} "
-              f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
+        for epoch in range(EPOCHS):
+            train_loss, train_acc = train_one_epoch(model, train_loader, optimizer, criterion, DEVICE)
+            val_loss, val_acc = validate(model, val_loader, criterion, DEVICE)
 
-        history["train_loss"].append(train_loss)
-        history["val_loss"].append(val_loss)
-        history["train_acc"].append(train_acc)
-        history["val_acc"].append(val_acc)
+            print(f"Epoch [{epoch+1}/{EPOCHS}] "
+                  f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} "
+                  f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
 
-        scheduler.step(val_acc)
+            history["train_loss"].append(train_loss)
+            history["val_loss"].append(val_loss)
+            history["train_acc"].append(train_acc)
+            history["val_acc"].append(val_acc)
 
-        early_stopping(val_acc, model, best_model_path)
+            scheduler.step(val_acc)
+            early_stopping(val_acc, model, best_model_path)
+            if early_stopping.early_stop:
+                print(" Early stopping triggered. Training stopped.")
+                break
 
-        if early_stopping.early_stop:
-            print(" Early stopping triggered. Training stopped.")
-            break
-
-    # save the training process records
-    with open(os.path.join(SAVE_DIR, "training_history_full.json"), "w") as f:
-        json.dump(history, f)
-
-    print(" Training complete. History saved.")
+        # save the training process
+        with open(os.path.join(SAVE_DIR, f"training_history_{model_name}.json"), "w") as f:
+            json.dump(history, f)
+        # save the best model
+        print(f" Training complete for {model_name}. History saved.")
