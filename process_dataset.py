@@ -4,11 +4,11 @@ import random
 from tqdm import tqdm
 
 # configuration
-SOURCE_AFFECTNET = os.path.join("..", "data", "original", "AffectNet-HQ")
-SOURCE_RAFDB = os.path.join("..", "data", "original", "RAF-DB")
-TARGET_DIR = os.path.join("..", "data", "emotion_dataset")
+SOURCE_AFFECTNET = "G:/1学习/dataset/affectnet-hq"
+SOURCE_RAFDB = "G:/1学习/dataset/RAF_DB"
+TARGET_DIR = "E:/COMPSYS731/dataset"
 
-SPLIT_RATIO = 0.8  # 80% for training, 20% for validation
+SPLIT_RATIO = 0.7  # 80% for training, 20% for validation
 CATEGORIES = ['happy', 'sad', 'fear', 'anger', 'surprise', 'disgust', 'neutral']
 
 # create the target directory

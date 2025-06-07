@@ -86,11 +86,11 @@ def create_emotion_model(model_name, num_classes):
 
 if __name__ == '__main__':
     # configuration parameter
-    DATA_DIR = "../data/emotion_dataset"
+    DATA_DIR = "E:/COMPSYS731/dataset"
     SAVE_DIR = "emotion_model/checkpoints"
     NUM_CLASSES = 7
     BATCH_SIZE = 16
-    EPOCHS = 20
+    EPOCHS = 30
     LEARNING_RATE = 1e-4
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     os.makedirs(SAVE_DIR, exist_ok=True)
@@ -98,11 +98,14 @@ if __name__ == '__main__':
     print(f" Training on device: {DEVICE}")
 
     transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406],
-                             [0.229, 0.224, 0.225])
-    ])
+    transforms.Resize((224, 224)),
+    transforms.RandomHorizontalFlip(),  
+    transforms.RandomRotation(10),      
+    transforms.ColorJitter(brightness=0.1, contrast=0.1),  
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225])
+])
 
     # Lodaing the full dataset
     full_train_dataset = datasets.ImageFolder(os.path.join(DATA_DIR, "train"), transform=transform)
