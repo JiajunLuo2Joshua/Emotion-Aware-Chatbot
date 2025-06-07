@@ -1,4 +1,4 @@
-# ECEC: Design and Implementation of an Emotionally Chatbot for Elderly Companionship
+# ECEC: Design and Implementation of an Emotional Chatbot for Elderly Companionship
 
 ![Project Logo](./emotion_model/TeamLogo.jpg)
 
@@ -70,26 +70,36 @@ Chat via text or switch to voice input anytime.
 ---
 
 ## 📂 Directory Structure
+
 ```
 CS731-2025-PROJECT-GROUP-8/
-├── chatbot/                     # Voice and dialogue logic
+├── chatbot/                         # Voice and dialogue logic
+│   ├── ffmpeg/                      # Audio/video support binaries and presets
+│   ├── TTS-dev/                     # Text-to-Speech (TTS) engine and scripts
+│   ├── vosk-model-small-en-us-0.15/ # Offline Speech-to-Text (STT) model files
+│   ├── chat_memory.py
+│   ├── final_chatbot.py             # Main chatbot script (for pipeline integration)
+│   ├── voice_choice.py
+│   ├── voice_test.py
+│   └── ... (other modules, audio logs, etc.)
 ├── data/
-│   ├── original/                # Original Dataset
+│   ├── original/                    # Original dataset
 │   │   ├── AffectNet-HQ/
 │   │   └── RAF-DB/
-│   └── emotion_dataset/         # Dataset for training and validation 
+│   └── emotion_dataset/             # Dataset for training and validation 
 │       ├── train/
 │       └── val/
-├── emotion_model/               # Model training, inference, UI code, and checkpoints
-│   ├── checkpoints/             # Result of trained model
-│   ├── EmotionChatUI.py         # Main application entry (GUI)
-│   ├── train.py                 # Training code for emotion models
-│   ├── evaluate_model.py        # Validation code
-│   ├── inference.py             # Inference for single/batch images
-│   ├── process_dataset.py       # Dataset preprocessing code
+├── emotion_model/                   # Model training, inference, UI code, and checkpoints
+│   ├── checkpoints/                 # Result of trained model
+│   ├── EmotionChatUI.py             # Main application entry (GUI)
+│   ├── train.py                     # Training code for emotion models
+│   ├── evaluate_model.py            # Validation code
+│   ├── inference.py                 # Inference for single/batch images
+│   ├── process_dataset.py           # Dataset preprocessing code
 │   └── ... (other modules)
-├── face_detection/              # Face detection code and YOLOv8 model
-├── requirements.txt             # Dependency list
+├── face_detection/                  # Face detection code and YOLOv8 model
+│   └── yolov8n-face.pt
+├── requirements.txt                 # Dependency list
 └── README.md
 ```
 
