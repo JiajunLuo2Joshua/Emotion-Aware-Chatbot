@@ -87,7 +87,7 @@ def create_emotion_model(model_name, num_classes):
 if __name__ == '__main__':
     # configuration parameter
     DATA_DIR = "E:/COMPSYS731/dataset"
-    SAVE_DIR = "emotion_model/checkpoints"
+    SAVE_DIR = "checkpoints"
     NUM_CLASSES = 7
     BATCH_SIZE = 16
     EPOCHS = 30

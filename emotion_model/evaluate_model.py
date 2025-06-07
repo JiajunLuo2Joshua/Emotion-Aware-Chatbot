@@ -10,10 +10,8 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 import numpy as np
 
 # Configuration
-#DATA_DIR = os.path.join("..", "data", "emotion_dataset", "val")
-DATA_DIR = "E:/COMPSYS731/data/data/emotion_dataset/val"
-CHECKPOINT_DIR = "E:/ljj22/Documents/Github/cs731-2025-project-group-8/emotion_model/emotion_model/checkpoints"
-#CHECKPOINT_DIR = os.path.join("..", "emotion_model", "checkpoints")
+DATA_DIR = os.path.join("..", "data", "emotion_dataset", "val")
+CHECKPOINT_DIR = os.path.join("..", "emotion_model", "checkpoints")
 NUM_CLASSES = 7  # Ekman theory 
 BATCH_SIZE = 32
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
