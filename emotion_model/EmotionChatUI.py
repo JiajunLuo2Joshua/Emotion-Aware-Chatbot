@@ -20,7 +20,7 @@ import threading
 
 # Load Models and Constants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-EMOTION_MODEL_PATH = os.path.join(BASE_DIR, 'checkpoints', 'best_model_full.pt')
+EMOTION_MODEL_PATH = os.path.join(BASE_DIR, 'checkpoints', 'best_model_efficientnet_b0.pt')
 FACE_MODEL_PATH = os.path.join(BASE_DIR, '..', 'face_detection', 'yolov8n-face.pt')
 LABELS = ['Anger', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
