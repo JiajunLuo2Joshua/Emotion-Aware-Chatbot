@@ -24,6 +24,7 @@ Launch the desktop application with:
 
 Go to emotion_model/ and run:
 ```
+cd emotion_model
 python main.py
 ```
 Opens a GUI, starts the webcam, detects And recognizes faces, and predicts emotions in real time.
@@ -91,7 +92,7 @@ CS731-2025-PROJECT-GROUP-8/
 │       └── val/
 ├── emotion_model/                   # Model training, inference, UI code, and checkpoints
 │   ├── checkpoints/                 # Result of trained model
-│   ├── EmotionChatUI.py             # Main application entry (GUI)
+│   ├── main.py                      # Main application entry (GUI)
 │   ├── train.py                     # Training code for emotion models
 │   ├── evaluate_model.py            # Validation code
 │   ├── inference.py                 # Inference for single/batch images
