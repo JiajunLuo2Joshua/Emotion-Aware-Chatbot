@@ -24,7 +24,7 @@ Launch the desktop application with:
 
 Go to emotion_model/ and run:
 ```
-python EmotionChatUI.py
+python main.py
 ```
 Opens a GUI, starts the webcam, detects And recognizes faces, and predicts emotions in real time.
 
