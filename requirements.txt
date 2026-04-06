@@ -17,6 +17,9 @@ scikit-learn>=1.0.2
 matplotlib>=3.5.1
 seaborn>=0.12.2      # for confusion matrix heatmaps
 
+# === GUI ===
+PyQt5>=5.15.0        # Qt-based GUI framework
+
 # === ChatGPT API ===
 openai
 
@@ -36,3 +39,6 @@ python-dotenv        # For loading API keys from .env file
 
 # === Optional: Offline STT ===
 vosk                 # Alternative to Whisper for offline STT
+
+# === Testing ===
+pytest>=7.0.0        # Unit testing framework

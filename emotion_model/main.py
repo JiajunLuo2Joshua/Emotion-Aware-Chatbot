@@ -192,7 +192,7 @@ class EmotionChatApp(QtWidgets.QWidget):
     def toggle_input_mode(self):
         if self.mode == "text":
             self.mode = "voice"
-            self.toggle_btn.setText("⌨️ Switch to Text")
+            self.toggle_btn.setText("⌨️  Text Mode")
             self.voice_mode_active = True
             self.input_line.setDisabled(True)
             self.send_btn.setDisabled(True)
@@ -200,7 +200,7 @@ class EmotionChatApp(QtWidgets.QWidget):
             self.voice_loop_timer.start(300)
         else:
             self.mode = "text"
-            self.toggle_btn.setText("🎤 Switch to Voice")
+            self.toggle_btn.setText("🎤  Voice Mode")
             self.voice_mode_active = False
             self.voice_loop_timer.stop()
             self.input_line.setDisabled(False)

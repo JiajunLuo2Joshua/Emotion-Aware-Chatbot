@@ -11,6 +11,7 @@ __pycache__/
 # Ignore the virtual environment
 venv/
 env/
+emotion_env/
 
 # Ignore the log file
 *.log
