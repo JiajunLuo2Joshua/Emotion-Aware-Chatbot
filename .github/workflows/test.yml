@@ -23,6 +23,7 @@ jobs:
           pip install pytest
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
           pip install timm
+          pip install scikit-learn
           pip install openai
 
       - name: Run tests
